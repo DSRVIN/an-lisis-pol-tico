@@ -1,0 +1,217 @@
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+    output = "/home/ubuntu/analisis_politico_peru/app/node_modules/.prisma/client"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+// Modelos para la aplicación de análisis político peruano
+model Partido {
+  id            String   @id @default(cuid())
+  nombre        String   @unique
+  siglas        String?  @unique
+  ideologia     String
+  descripcion   String?
+  logoUrl       String?
+  fundacion     Int?     // Año de fundación
+  afiliados     Int?     // Número de afiliados
+  colorPrimario String?  // Color representativo del partido
+  colorSecundario String?
+  sitioWeb      String?
+  redes         Json?    // Redes sociales del partido
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  candidatos    Candidato[]
+  propuestas    PropuestaPartido[]
+
+  @@map("partidos")
+}
+
+model Candidato {
+  id                    String   @id @default(cuid())
+  nombres               String
+  apellidos             String
+  nombreCompleto        String
+  edad                  Int?
+  lugarNacimiento       String?
+  profesion             String
+  biografia             String?
+  fotoUrl               String?
+  partidoId             String
+  posicionEncuesta      Int?     // Posición en encuestas
+  porcentajeIntencion   Float?   // Porcentaje de intención de voto
+  experienciaPolitica   String?  // Trayectoria política resumida
+  logrosDestacados      String[] // Array de logros principales
+  controversias         String[] // Array de controversias si las hay
+  educacion             String?
+  experienciaLaboral    String?
+  redesSociales         Json?    // Links a redes sociales
+  sitioWeb              String?
+  eslogan               String?
+  estado                String   @default("activo") // activo, retirado, suspendido
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  partido               Partido  @relation(fields: [partidoId], references: [id], onDelete: Cascade)
+  propuestas            Propuesta[]
+  analisisIA            AnalisisIA[]
+  comparaciones1        Comparacion[] @relation("CandidatoUno")
+  comparaciones2        Comparacion[] @relation("CandidatoDos")
+
+  @@map("candidatos")
+}
+
+model Tema {
+  id          String   @id @default(cuid())
+  nombre      String   @unique  // economía, educación, salud, seguridad, etc.
+  descripcion String?
+  icono       String?  // Nombre del icono de lucide-react
+  color       String?  // Color representativo del tema
+  orden       Int      @default(0) // Para ordenar los temas
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  propuestas  Propuesta[]
+  propuestasPartido PropuestaPartido[]
+
+  @@map("temas")
+}
+
+model Propuesta {
+  id           String   @id @default(cuid())
+  titulo       String
+  descripcion  String
+  detalle      String?  // Descripción más detallada
+  candidatoId  String
+  temaId       String
+  prioridad    String   @default("media") // alta, media, baja
+  factibilidad String?  // evaluación de factibilidad
+  costo        String?  // costo estimado si aplica
+  plazo        String?  // plazo de implementación
+  estado       String   @default("propuesta") // propuesta, en_desarrollo, implementada
+  fuente       String?  // fuente de la propuesta (plan de gobierno, discurso, etc.)
+  fechaPublica DateTime? // fecha en que se hizo pública
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  candidato    Candidato @relation(fields: [candidatoId], references: [id], onDelete: Cascade)
+  tema         Tema      @relation(fields: [temaId], references: [id])
+  analisisIA   AnalisisIA[]
+
+  @@map("propuestas")
+}
+
+model PropuestaPartido {
+  id           String   @id @default(cuid())
+  titulo       String
+  descripcion  String
+  detalle      String?
+  partidoId    String
+  temaId       String
+  prioridad    String   @default("media")
+  estado       String   @default("vigente") // vigente, actualizada, retirada
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  partido      Partido  @relation(fields: [partidoId], references: [id], onDelete: Cascade)
+  tema         Tema     @relation(fields: [temaId], references: [id])
+
+  @@map("propuestas_partidos")
+}
+
+model AnalisisIA {
+  id             String   @id @default(cuid())
+  tipo           String   // "propuesta", "discurso", "trayectoria", "comparacion"
+  contenido      String   // texto original analizado
+  resumen        String   // resumen generado por IA
+  analisis       String   // análisis detallado
+  sentimiento    String?  // positivo, negativo, neutro
+  keywords       String[] // palabras clave extraídas
+  clasificacion  Json?    // clasificación por temas/categorías
+  confianza      Float?   // nivel de confianza del análisis (0-1)
+  candidatoId    String?
+  propuestaId    String?
+  metadatos      Json?    // información adicional del análisis
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  candidato      Candidato? @relation(fields: [candidatoId], references: [id], onDelete: Cascade)
+  propuesta      Propuesta? @relation(fields: [propuestaId], references: [id], onDelete: Cascade)
+
+  @@map("analisis_ia")
+}
+
+model Comparacion {
+  id                String   @id @default(cuid())
+  candidatoUnoId    String
+  candidatoDosId    String
+  temaId            String?  // tema específico de comparación, null para comparación general
+  titulo            String
+  resumen           String   // resumen de la comparación
+  similitudes       String[] // puntos en común
+  diferencias       String[] // diferencias principales
+  analisisDetallado String?  // análisis completo generado por IA
+  metadata          Json?    // información adicional
+  fechaGeneracion   DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  candidatoUno      Candidato @relation("CandidatoUno", fields: [candidatoUnoId], references: [id], onDelete: Cascade)
+  candidatoDos      Candidato @relation("CandidatoDos", fields: [candidatoDosId], references: [id], onDelete: Cascade)
+
+  @@unique([candidatoUnoId, candidatoDosId, temaId])
+  @@map("comparaciones")
+}
+
+model Noticia {
+  id          String   @id @default(cuid())
+  titulo      String
+  resumen     String
+  contenido   String?
+  fuente      String
+  url         String?
+  fechaPublicacion DateTime
+  tags        String[] // etiquetas de la noticia
+  relevancia  String   @default("media") // alta, media, baja
+  verificada  Boolean  @default(false)
+  imagenUrl   String?
+  candidatosRelacionados String[] // IDs de candidatos relacionados
+  temasRelacionados      String[] // IDs de temas relacionados
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("noticias")
+}
+
+model ConfiguracionSistema {
+  id          String   @id @default(cuid())
+  clave       String   @unique
+  valor       String
+  descripcion String?
+  tipo        String   @default("string") // string, number, boolean, json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("configuracion_sistema")
+}
+
+// Modelo para logging de consultas y uso del sistema
+model LogConsulta {
+  id          String   @id @default(cuid())
+  tipoConsulta String  // "busqueda", "comparacion", "analisis", "resumen"
+  parametros   Json    // parámetros de la consulta
+  resultado    Json?   // resultado de la consulta
+  tiempoRespuesta Int? // tiempo en ms
+  ipUsuario    String?
+  userAgent    String?
+  exitosa      Boolean @default(true)
+  error        String? // mensaje de error si aplica
+  timestamp    DateTime @default(now())
+
+  @@map("log_consultas")
+}
